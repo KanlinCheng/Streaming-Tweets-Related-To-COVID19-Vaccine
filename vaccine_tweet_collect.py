@@ -51,17 +51,8 @@ class MyStreamListener(tweepy.StreamListener):
         user_id = status.user.id    # User ID
         username = status.user.name    # Username
         create_time = status.created_at  # create_time
-
-        # Tweet
-        if status.truncated:
-            tweet = status.extended_tweet['full_text']
-            hashtags = status.extended_tweet['entities']['hashtags']
-        else:
-            tweet = status.text
-            hashtags = status.entities['hashtags']
-
-        # Read hastags
-        hashtags = read_hashtags(hashtags)
+        lang = status.lang    # Language
+        retweet_count = status.retweet_count    # Retweet count, would not be stored as the value is always 0
 
         # Place info
         place = None
@@ -75,11 +66,16 @@ class MyStreamListener(tweepy.StreamListener):
             country_code = str(place.country_code)
             city = str(place.name)
 
-        # Retweet count, would not be stored as the value is always 0
-        retweet_count = status.retweet_count
+        # Tweet
+        if status.truncated:
+            tweet = status.extended_tweet['full_text']
+            hashtags = status.extended_tweet['entities']['hashtags']
+        else:
+            tweet = status.text
+            hashtags = status.entities['hashtags']
 
-        # Language
-        lang = status.lang
+        # Read hastags
+        hashtags = read_hashtags(hashtags)
 
         # intersection of obtained hashtags and target hashtags
         hashtags_lower = [h.lower() for h in hashtags]
@@ -99,10 +95,8 @@ class MyStreamListener(tweepy.StreamListener):
                 'user_id': user_id,
                 'username': username,
                 'tweet': tweet,
-                'hashtags': hashtags
+                'hashtags': hashtags_lower
             }
-            if city is not None:
-                print(city, country)
 
             try:
                 # insert the data into the mongoDB into a collection called twitter_stream
@@ -135,6 +129,6 @@ if __name__ == "__main__":
 
     myStreamListener = MyStreamListener()
     myStream = tweepy.Stream(auth=api.auth, listener=myStreamListener,
-                             tweet_mode="extended", wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
+                             tweet_mode="extended", wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
     myStream.filter(languages=languages, track=target_hashtags_list)
 
