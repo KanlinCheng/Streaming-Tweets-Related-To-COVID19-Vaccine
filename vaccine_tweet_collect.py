@@ -34,7 +34,7 @@ class MyStreamListener(tweepy.StreamListener):
     print("Hashtags list")
     print(target_hashtags_list)
 
-    def __init__(self, time_limit=300):
+    def __init__(self, time_limit=86400):
         self.start_time = time.time()
         self.limit = time_limit
         super(MyStreamListener, self).__init__()
