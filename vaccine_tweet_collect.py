@@ -1,18 +1,11 @@
 import tweepy
 import time
 import pymongo
+from urllib3.exceptions import ProtocolError
+from twitter_api_auth import auth_tweepy
 import json
 import pandas as pd
 import datetime
-
-
-def auth_tweepy_kevin():
-    auth = tweepy.OAuthHandler("",
-                               "")
-    auth.set_access_token("",
-                          "")
-    api = tweepy.API(auth)
-    return api
 
 
 def read_hashtags(tag_list):
@@ -25,14 +18,12 @@ def read_hashtags(tag_list):
 class MyStreamListener(tweepy.StreamListener):
     tweets = []
     target_hashtags_list = list()
-    with open("vaccine-hashtags.txt", 'r', encoding='utf-8') as f:
+    with open("new_vaccine_hashtags.txt", 'r', encoding='utf-8') as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip()
             line = line.lower()
             target_hashtags_list.append(line)
-    print("Hashtags list")
-    print(target_hashtags_list)
 
     def __init__(self, time_limit=86400):
         self.start_time = time.time()
@@ -49,7 +40,8 @@ class MyStreamListener(tweepy.StreamListener):
 
         tweet_id = status.id    # Tweet ID
         user_id = status.user.id    # User ID
-        username = status.user.name    # Username
+        screen_name = status.user.screen_name # Twitter handle
+        # username = status.user.name  # Username
         create_time = status.created_at  # create_time
         lang = status.lang    # Language
         retweet_count = status.retweet_count    # Retweet count, would not be stored as the value is always 0
@@ -79,13 +71,13 @@ class MyStreamListener(tweepy.StreamListener):
 
         # intersection of obtained hashtags and target hashtags
         hashtags_lower = [h.lower() for h in hashtags]
-        vaccine_str = "vaccine"
-        hashtag_intersection = [hashlow for hashlow in hashtags_lower if vaccine_str in hashlow or hashlow in self.target_hashtags_list]
+        # vaccine_str = "vaccin"
+        # hashtag_intersection = [hashlow for hashlow in hashtags_lower if vaccine_str in hashlow or hashlow in self.target_hashtags_list]
 
-        # If tweet is not a retweet and tweet is in English and has a required hashtag
-        if lang == "en" and (len(hashtag_intersection) > 0 and not hasattr(status, "retweeted_status")):
+        # If the tweet is not a retweet, store it into the database
+        if not hasattr(status, "retweeted_status"):
             self.tweets.append(status)
-            print(tweet, hashtags)
+            # print(tweet, hashtags)
             data = {
                 'tweet_id': tweet_id,
                 'created_at': create_time,
@@ -93,7 +85,7 @@ class MyStreamListener(tweepy.StreamListener):
                 'country_code': country_code,
                 'city': city,
                 'user_id': user_id,
-                'username': username,
+                'screen_name': screen_name,
                 'tweet': tweet,
                 'hashtags': hashtags_lower
             }
@@ -116,19 +108,25 @@ class MyStreamListener(tweepy.StreamListener):
 
 
 if __name__ == "__main__":
-    api = auth_tweepy_kevin()
+    api = auth_tweepy()
 
-    target_hashtags_list = list()
-    with open("vaccine-hashtags.txt", 'r', encoding='utf-8') as f:
+    target_keywords_list = list()
+    with open("vaccine_key_words.txt", 'r', encoding='utf-8') as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip()
-            target_hashtags_list.append(line)
+            target_keywords_list.append(line)
+    print(target_keywords_list)
 
     languages = ['en']
 
     myStreamListener = MyStreamListener()
-    myStream = tweepy.Stream(auth=api.auth, listener=myStreamListener,
-                             tweet_mode="extended", wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-    myStream.filter(languages=languages, track=target_hashtags_list)
+    myStream = tweepy.Stream(auth=api.auth, listener=myStreamListener, tweet_mode="extended",
+                             wait_on_rate_limit=True, wait_on_rate_limit_notify=True, stall_warnings=True)
+    while True:
+        try:
+            myStream.filter(languages=languages, track=target_keywords_list)
+        except ProtocolError:
+            continue
+
 
